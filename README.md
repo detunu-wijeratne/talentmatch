@@ -5,6 +5,13 @@ TalentMatch is a full-stack recruitment application that uses AI to evaluate and
 
 The system processes candidate CVs, extracts structured profile information, analyzes job requirements, and generates explainable matching scores.
 
+## Live Application
+
+Production URL: https://talentmatch-rho.vercel.app/
+
+GitHub Repository:
+https://github.com/detunu-wijeratne/talentmatch
+
 ## Tech Stack
 
 - Frontend: Next.js 16, React, TypeScript, Tailwind CSS
@@ -12,7 +19,7 @@ The system processes candidate CVs, extracts structured profile information, ana
 - Database: PostgreSQL (Neon)
 - ORM: Prisma 7
 - AI: Google Gemini via @google/genai
-- Deployment: Vercel (deployment pending)
+- Deployment: Vercel
 
 ## Features
 
@@ -50,7 +57,31 @@ Following the assignment's permitted subset approach, 40 candidate CVs were sele
 
 The selection process used a preliminary relevance shortlist based on job titles and skill-related terms. Candidates were selected across different job categories to provide relevant and contrasting examples.
 
-The selected candidate IDs are listed in `results/selected-candidates.json` in the local working environment. The final list of all 40 IDs should be copied into this README before submission if that private file is excluded from Git.
+
+### Selected Candidate IDs (40)
+
+The following 40 candidate CVs were selected from the provided
+472-CV corpus for AI matching and evaluation.
+
+Selection was performed using preliminary job-title and
+skill-based relevance, covering all 10 job descriptions.
+
+```text
+10040, 1023, 10580, 11079, 11500,
+11723, 13212, 13259, 13319, 13728,
+13747, 15323, 17038, 1708, 17427,
+17658, 17866, 18213, 18413, 18917,
+19021, 19578, 19730, 20269, 20304,
+20686, 20799, 21457, 22065, 22832,
+23802, 24820, 2598, 2889, 3100,
+3210, 4181, 4692, 5016, 9523
+```
+
+Total selected candidates: **40**
+
+All 10 job descriptions were imported, and 100 AI matching
+records were generated and stored in PostgreSQL.
+
 
 Source CVs and job-description files are not included in the public repository.
 
