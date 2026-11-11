@@ -2,6 +2,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import MatchWorkspace, {
+  type CandidateMatch,
+} from "./MatchWorkspace";
 
 export const dynamic = "force-dynamic";
 
@@ -17,17 +20,21 @@ export default async function JobDetailsPage({
   const { id } = await params;
   const { minScore } = await searchParams;
 
-  const parsed = Number(minScore ?? 0);
-  const minimum = Number.isFinite(parsed)
-    ? Math.max(0, Math.min(100, parsed))
+  const requestedScore = Number(minScore ?? "0");
+  const minimumScore = Number.isFinite(requestedScore)
+    ? Math.max(0, Math.min(100, requestedScore))
     : 0;
 
   const job = await prisma.job.findUnique({
     where: { id },
     include: {
       matches: {
-        where: { totalScore: { gte: minimum } },
-        include: { candidate: true },
+        where: {
+          totalScore: { gte: minimumScore },
+        },
+        include: {
+          candidate: true,
+        },
         orderBy: [
           { totalScore: "desc" },
           { candidateId: "asc" },
@@ -38,193 +45,177 @@ export default async function JobDetailsPage({
 
   if (!job) notFound();
 
+  const matches: CandidateMatch[] = job.matches.map(
+    (match) => ({
+      id: match.id,
+      candidateId: match.candidateId,
+      name: match.candidate.name,
+      designation: match.candidate.designation,
+      company: match.candidate.company,
+      experience: match.candidate.experience,
+      totalScore: match.totalScore,
+      skillsScore: match.skillsScore,
+      experienceScore: match.experienceScore,
+      designationScore: match.designationScore,
+      matchedSkills: match.matchedSkills,
+      missingSkills: match.missingSkills,
+      reason: match.reason,
+    })
+  );
+
+  const maxScore = matches[0]?.totalScore;
+
   return (
     <div className="space-y-7">
-      <Link
-        href="/jobs"
-        className="inline-block text-sm font-medium text-indigo-600 hover:underline"
-      >
-        ← Back to jobs
-      </Link>
+      {/* BREADCRUMBS */}
+      <nav className="flex items-center gap-2 text-xs text-slate-400">
+        <Link
+          href="/jobs"
+          className="transition hover:text-indigo-600"
+        >
+          Opportunities
+        </Link>
+        <span>/</span>
+        <span className="font-medium text-slate-700">
+          Job {job.id}
+        </span>
+      </nav>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
-        <p className="text-xs font-semibold uppercase tracking-widest text-indigo-600">
-          Job ID: {job.id}
-        </p>
-
-        <h1 className="mt-3 text-3xl font-bold tracking-tight">
-          {job.title}
-        </h1>
-
-        <div className="mt-5 flex flex-wrap gap-3 text-sm">
-          <span className="rounded-lg bg-indigo-50 px-3 py-2 text-indigo-700">
-            {job.requiredSkills.length} required skills
-          </span>
-          <span className="rounded-lg bg-slate-100 px-3 py-2 text-slate-700">
-            Expected experience: {job.expectedYears ?? "Not inferred"} years
-          </span>
-        </div>
-
-        <h2 className="mt-8 text-lg font-semibold">
-          Required Skills
-        </h2>
-
-        <div className="mt-3 flex flex-wrap gap-2">
-          {job.requiredSkills.map(skill => (
-            <span
-              key={skill}
-              className="rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-700"
-            >
-              {skill}
-            </span>
-          ))}
-        </div>
-
-        <details className="mt-8 rounded-xl border border-slate-200 p-4">
-          <summary className="cursor-pointer font-medium">
-            View full job description
-          </summary>
-          <p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-slate-600">
-            {job.description}
-          </p>
-        </details>
-      </div>
-
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold">AI-Ranked Candidates</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            {job.matches.length} saved results meet the filter
-          </p>
-        </div>
-
-        <form method="get" className="flex items-end gap-2">
-          <label className="text-sm font-medium text-slate-600">
-            Minimum score
-            <select
-              name="minScore"
-              defaultValue={String(minimum)}
-              className="mt-2 block rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm"
-            >
-              {[0, 30, 50, 70, 80, 90].map(score => (
-                <option key={score} value={score}>
-                  {score}+
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="submit"
-            className="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-700"
-          >
-            Apply
-          </button>
-        </form>
-      </div>
-
-      {job.matches.length === 0 ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-slate-500">
-          No saved matching results meet this filter.
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {job.matches.map((match, index) => (
-            <div
-              key={match.id}
-              className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 font-bold text-indigo-700">
-                    #{index + 1}
-                  </div>
-
-                  <div>
-                    <h3 className="text-lg font-semibold">
-                      {match.candidate.name ?? `Candidate ${match.candidateId}`}
-                    </h3>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {match.candidate.designation ?? "Designation unavailable"}
-                      {" · "}
-                      {match.candidate.experience ?? "Unknown"} years
-                    </p>
-                    <p className="mt-1 text-xs text-slate-400">
-                      Candidate ID: {match.candidateId}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-indigo-600">
-                    {match.totalScore.toFixed(1)}%
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    Overall match
-                  </p>
-                </div>
+      {/* JOB OVERVIEW */}
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="p-6 sm:p-8">
+          <div className="flex flex-wrap items-start justify-between gap-5">
+            <div className="min-w-0 flex-1">
+              <div className="mb-3 flex items-center gap-3">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-indigo-600">
+                  Job Intelligence
+                </span>
+                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                  Evaluated
+                </span>
               </div>
 
-              <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                {[
-                  ["Skills", match.skillsScore, 50],
-                  ["Experience", match.experienceScore, 30],
-                  ["Designation", match.designationScore, 20],
-                ].map(([label, score, maximum]) => (
-                  <div
-                    key={String(label)}
-                    className="rounded-xl bg-slate-50 p-4"
-                  >
-                    <p className="text-xs text-slate-500">{label}</p>
-                    <p className="mt-1 font-semibold">
-                      {Number(score).toFixed(1)}/{maximum}
-                    </p>
-                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-200">
-                      <div
-                        className="h-full rounded-full bg-indigo-600"
-                        style={{
-                          width: `${Math.min(
-                            100,
-                            (Number(score) / Number(maximum)) * 100
-                          )}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <h1 className="text-2xl font-semibold tracking-tight text-[#17243d] sm:text-3xl">
+                {job.title}
+              </h1>
 
-              <div className="mt-5 grid gap-5 md:grid-cols-2">
-                <div>
-                  <p className="text-sm font-semibold text-emerald-700">
-                    Matched Skills ({match.matchedSkills.length})
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
-                    {match.matchedSkills.join(", ") || "None identified"}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-sm font-semibold text-amber-700">
-                    Missing Skills ({match.missingSkills.length})
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
-                    {match.missingSkills.join(", ") || "None identified"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-5 rounded-xl bg-indigo-50/60 p-4">
-                <p className="text-xs font-semibold text-indigo-700">
-                  AI MATCH EXPLANATION
-                </p>
-                <p className="mt-2 text-sm leading-6 text-slate-700">
-                  {match.reason ?? "Explanation not available"}
-                </p>
-              </div>
+              <p className="mt-3 text-sm text-slate-500">
+                Job ID: {job.id} ·{" "}
+                {job.requiredSkills.length} required skills ·{" "}
+                {job.expectedYears === null
+                  ? "Experience unspecified"
+                  : `${job.expectedYears} years expected`}
+              </p>
             </div>
-          ))}
+
+            <Link
+              href="/jobs"
+              className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 transition hover:border-indigo-200 hover:text-indigo-600"
+            >
+              ← All jobs
+            </Link>
+          </div>
+
+          {/* REQUIRED SKILLS */}
+          <div className="mt-7 border-t border-slate-100 pt-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-slate-900">
+                Role requirements
+              </h2>
+              <span className="text-xs text-slate-400">
+                {job.requiredSkills.length} skills
+              </span>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {job.requiredSkills.map((skill, index) => (
+                <span
+                  key={`${skill}-${index}`}
+                  className="rounded-lg border border-slate-200 bg-[#f8fafc] px-3 py-1.5 text-xs text-slate-600"
+                >
+                  {skill}
+                </span>
+              ))}
+            </div>
+
+            <details className="group mt-6 rounded-xl border border-slate-200">
+              <summary className="cursor-pointer px-4 py-3.5 text-sm font-medium text-slate-700">
+                View complete job description
+              </summary>
+              <div className="border-t border-slate-100 px-4 py-5">
+                <p className="whitespace-pre-wrap text-sm leading-7 text-slate-600">
+                  {job.description}
+                </p>
+              </div>
+            </details>
+          </div>
         </div>
-      )}
+      </section>
+
+      {/* RANKING TITLE AND FILTER */}
+      <section className="space-y-5">
+        <div className="flex flex-wrap items-end justify-between gap-5">
+          <div>
+            <div className="mb-2 flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+              <span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-indigo-600">
+                AI Candidate Evaluation
+              </span>
+            </div>
+
+            <h2 className="text-2xl font-semibold tracking-tight text-slate-900">
+              Match intelligence
+            </h2>
+
+            <p className="mt-2 text-sm text-slate-500">
+              {matches.length} candidate evaluations meet
+              your filter
+              {maxScore !== undefined &&
+                ` · Top score ${maxScore.toFixed(1)}%`}
+            </p>
+          </div>
+
+          <form
+            method="get"
+            className="flex items-end gap-2"
+          >
+            <div>
+              <label
+                htmlFor="minScore"
+                className="mb-2 block text-xs font-medium text-slate-500"
+              >
+                Minimum match score
+              </label>
+              <select
+                id="minScore"
+                name="minScore"
+                defaultValue={String(minimumScore)}
+                className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-700 outline-none focus:border-indigo-500"
+              >
+                {[0, 30, 50, 60, 70, 80, 90, 100].map(
+                  (score) => (
+                    <option key={score} value={score}>
+                      {score}+
+                    </option>
+                  )
+                )}
+              </select>
+            </div>
+
+            <button
+              type="submit"
+              className="h-11 rounded-xl bg-[#17243d] px-5 text-sm font-semibold text-white transition hover:bg-[#293a58]"
+            >
+              Apply
+            </button>
+          </form>
+        </div>
+
+        <MatchWorkspace
+          key={`${job.id}-${minimumScore}`}
+          matches={matches}
+        />
+      </section>
     </div>
   );
 }
