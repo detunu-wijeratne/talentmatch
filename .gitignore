@@ -39,3 +39,21 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/src/generated/prisma
+
+# TalentMatch private datasets
+/data/
+
+# Keep the required CSV, ignore other generated results
+/results/*
+!/results/top10.csv
+
+# Allow example environment variables
+!.env.example
+
+# Local AI editor configurations
+/.agents/
+/.claude/
+/.windsurf/
+/skills-lock.json
